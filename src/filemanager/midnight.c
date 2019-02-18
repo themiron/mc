@@ -429,6 +429,74 @@ midnight_get_shortcut (long command)
 }
 
 /* --------------------------------------------------------------------------------------------- */
+/**
+ * Return a random hint.  If force is TRUE, ignore the timeout.
+ */
+
+static char *
+get_random_hint (gboolean force)
+{
+    static const guint64 update_period = 60 * G_USEC_PER_SEC;
+    static guint64 tv = 0;
+
+    char *data, *result = NULL, *eop;
+    size_t len, start;
+    GIConv conv;
+
+    /* Do not change hints more often than one minute */
+    if (!force && !mc_time_elapsed (&tv, update_period))
+        return g_strdup ("");
+
+    data = load_mc_home_file (mc_global.share_data_dir, MC_HINT, NULL, &len);
+    if (data == NULL)
+        return NULL;
+
+    /* get a random entry */
+    srand ((unsigned int) (tv / G_USEC_PER_SEC));
+    start = ((size_t) rand ()) % (len - 1);
+
+    /* Search the start of paragraph */
+    for (; start != 0; start--)
+        if (data[start] == '\n' && data[start + 1] == '\n')
+        {
+            start += 2;
+            break;
+        }
+
+    /* Search the end of paragraph */
+    for (eop = data + start; *eop != '\0'; eop++)
+    {
+        if (*eop == '\n' && *(eop + 1) == '\n')
+        {
+            *eop = '\0';
+            break;
+        }
+        if (*eop == '\n')
+            *eop = ' ';
+    }
+
+    /* hint files are stored in utf-8 */
+    /* try convert hint file from utf-8 to terminal encoding */
+    conv = str_crt_conv_from ("UTF-8");
+    if (conv != INVALID_CONV)
+    {
+        GString *buffer;
+
+        buffer = g_string_sized_new (len - start);
+        if (str_convert (conv, &data[start], buffer) != ESTR_FAILURE)
+            result = g_string_free (buffer, FALSE);
+        else
+            g_string_free (buffer, TRUE);
+        str_close_conv (conv);
+    }
+    else
+        result = g_strndup (data + start, len - start);
+
+    g_free (data);
+    return result;
+}
+
+/* --------------------------------------------------------------------------------------------- */
 
 static char *
 midnight_get_title (const WDialog * h, size_t len)
@@ -1609,75 +1677,6 @@ midnight_set_buttonbar (WButtonBar * b)
     buttonbar_set_label (b, 9, Q_ ("ButtonBar|PullDn"), main_map, NULL);
     buttonbar_set_label (b, 10, Q_ ("ButtonBar|Quit"), main_map, NULL);
 }
-
-/* --------------------------------------------------------------------------------------------- */
-/**
- * Return a random hint.  If force is TRUE, ignore the timeout.
- */
-
-char *
-get_random_hint (gboolean force)
-{
-    static const guint64 update_period = 60 * G_USEC_PER_SEC;
-    static guint64 tv = 0;
-
-    char *data, *result = NULL, *eop;
-    size_t len, start;
-    GIConv conv;
-
-    /* Do not change hints more often than one minute */
-    if (!force && !mc_time_elapsed (&tv, update_period))
-        return g_strdup ("");
-
-    data = load_mc_home_file (mc_global.share_data_dir, MC_HINT, NULL, &len);
-    if (data == NULL)
-        return NULL;
-
-    /* get a random entry */
-    srand ((unsigned int) (tv / G_USEC_PER_SEC));
-    start = ((size_t) rand ()) % (len - 1);
-
-    /* Search the start of paragraph */
-    for (; start != 0; start--)
-        if (data[start] == '\n' && data[start + 1] == '\n')
-        {
-            start += 2;
-            break;
-        }
-
-    /* Search the end of paragraph */
-    for (eop = data + start; *eop != '\0'; eop++)
-    {
-        if (*eop == '\n' && *(eop + 1) == '\n')
-        {
-            *eop = '\0';
-            break;
-        }
-        if (*eop == '\n')
-            *eop = ' ';
-    }
-
-    /* hint files are stored in utf-8 */
-    /* try convert hint file from utf-8 to terminal encoding */
-    conv = str_crt_conv_from ("UTF-8");
-    if (conv != INVALID_CONV)
-    {
-        GString *buffer;
-
-        buffer = g_string_sized_new (len - start);
-        if (str_convert (conv, &data[start], buffer) != ESTR_FAILURE)
-            result = g_string_free (buffer, FALSE);
-        else
-            g_string_free (buffer, TRUE);
-        str_close_conv (conv);
-    }
-    else
-        result = g_strndup (data + start, len - start);
-
-    g_free (data);
-    return result;
-}
-
 
 /* --------------------------------------------------------------------------------------------- */
 /**
