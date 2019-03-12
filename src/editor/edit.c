@@ -73,6 +73,11 @@
 #include "spell.h"
 #endif
 
+#ifdef HAVE_EDITORCONFIG
+#include <editorconfig/editorconfig.h>
+#include <editorconfig/editorconfig_handle.h>
+#endif
+
 /*** global variables ****************************************************************************/
 
 int option_word_wrap_line_length = DEFAULT_WRAP_LINE_LENGTH;
@@ -2065,6 +2070,104 @@ edit_insert_file (WEdit * edit, const vfs_path_t * filename_vpath)
     return ins_len;
 }
 
+#ifdef HAVE_EDITORCONFIG
+void
+edit_load_editorconfig (WEdit * edit)
+{
+    const vfs_path_element_t *path_element;
+    editorconfig_handle eh;
+    int n, i;
+
+    if (edit->filename_vpath == NULL || !vfs_file_is_local (edit->filename_vpath))
+        return;
+
+    eh = editorconfig_handle_init ();
+    if (eh == NULL)
+        return;
+
+    path_element = vfs_path_get_by_index (edit->filename_vpath, -1);
+    if (editorconfig_parse (path_element->path, eh) == 0)
+    {
+        int indent_size = 0;
+        int tab_width = option_tab_spacing;
+#ifdef HAVE_CHARSET_TODO /* TODO */
+        GIConv conv = INVALID_CONV;
+        gboolean utf8 = edit->utf8;
+#endif
+
+        n = editorconfig_handle_get_name_value_count (eh);
+        for (i = 0; i < n; i++)
+        {
+            const char *name, *value;
+            char *error;
+            long l;
+
+            editorconfig_handle_get_name_value (eh, i, &name, &value);
+            if (strcmp (name, "indent_style") == 0)
+            {
+                if (strcmp (value, "tab") == 0)
+                    option_fill_tabs_with_spaces = FALSE;
+                else if (strcmp (value, "space") == 0)
+                    option_fill_tabs_with_spaces = TRUE;
+            }
+            else if (strcmp (name, "indent_size") == 0)
+            {
+                if (strcmp (value, "tab") == 0)
+                    indent_size = 0;
+                else
+                {
+                    l = strtol (value, &error, 0);
+                    if (l > 0 && *error == '\0')
+                        indent_size = l;
+                }
+            }
+            else if (strcmp (name, "tab_width") == 0)
+            {
+                l = strtol (value, &error, 0);
+                if (l > 0 && *error == '\0')
+                    tab_width = l;
+            }
+#ifdef HAVE_CHARSET_TODO /* TODO */
+            else if (strcmp (name, "charset") == 0) {
+                if (conv != INVALID_CONV)
+                    str_close_conv (conv);
+                conv = str_crt_conv_from (value);
+                utf8 = str_isutf8 (value);
+            }
+#endif
+            else if (strcmp (name, "insert_final_newline") == 0)
+            {
+                if (strcmp (value, "true") == 0)
+                    option_check_nl_at_eof = TRUE;
+                else if (strcmp (value, "false") == 0)
+                    option_check_nl_at_eof = FALSE;
+            }
+        }
+
+        if (option_fill_tabs_with_spaces && indent_size > 0)
+        {
+            option_tab_spacing = indent_size;
+            if (option_fake_half_tabs)
+                option_tab_spacing *= 2;
+        }
+        else
+            option_tab_spacing = tab_width;
+
+#ifdef HAVE_CHARSET_TODO /* TODO */
+        if (conv != INVALID_CONV)
+        {
+            if (edit->converter != str_cnv_from_term)
+                str_close_conv (edit->converter);
+            edit->converter = conv;
+            edit->utf8 = utf8;
+        }
+#endif
+    }
+
+    editorconfig_handle_destroy (eh);
+}
+#endif
+
 /* --------------------------------------------------------------------------------------------- */
 /**
  * Fill in the edit structure.  Return NULL on failure.  Pass edit as
@@ -2154,6 +2257,9 @@ edit_init (WEdit * edit, int y, int x, int lines, int cols, const vfs_path_t * f
     edit->loading_done = 1;
     edit->modified = 0;
     edit->locked = 0;
+#ifdef HAVE_EDITORCONFIG
+    edit_load_editorconfig (edit);
+#endif
     edit_load_syntax (edit, NULL, NULL);
     edit_get_syntax_color (edit, -1);
 

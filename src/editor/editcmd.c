@@ -1767,7 +1767,12 @@ edit_save_as_cmd (WEdit * edit)
                 edit->modified = 0;
                 edit->delete_file = 0;
                 if (different_filename)
+                {
+#ifdef HAVE_EDITORCONFIG
+                    edit_load_editorconfig (edit);
+#endif
                     edit_load_syntax (edit, NULL, edit->syntax_type);
+                }
                 vfs_path_free (exp_vpath);
                 edit->force |= REDRAW_COMPLETELY;
                 return TRUE;

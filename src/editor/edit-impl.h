@@ -209,6 +209,10 @@ void edit_spellcheck_file (WEdit * edit);
 void edit_set_spell_lang (void);
 #endif
 
+#ifdef HAVE_EDITORCONFIG
+void edit_load_editorconfig (WEdit * edit);
+#endif
+
 gboolean edit_save_block (WEdit * edit, const char *filename, off_t start, off_t finish);
 gboolean edit_save_block_cmd (WEdit * edit);
 gboolean edit_insert_file_cmd (WEdit * edit);

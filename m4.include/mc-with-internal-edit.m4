@@ -11,6 +11,7 @@ AC_DEFUN([mc_WITH_INTERNAL_EDIT], [
             use_internal_edit=yes
             AC_MSG_NOTICE([using internal editor])
             edit_msg="yes"
+            edit_support=""
     else
             use_internal_edit=no
             edit_msg="no"
@@ -42,5 +43,36 @@ AC_DEFUN([mc_WITH_INTERNAL_EDIT], [
                 enable_aspell=no
                 AC_MSG_NOTICE([aspell support is disabled because gmodule support is not available])
             fi
+    fi
+
+    dnl EditorConfig support.
+    AC_ARG_ENABLE([editorconfig],
+        AS_HELP_STRING([--enable-editorconfig], [Enable editorconfig support for internal editor @<:@no@:>@]),
+        [
+            if test "x$enableval" = xno; then
+                enable_editorconfig=no
+            else
+                enable_editorconfig=yes
+            fi
+        ],
+        [enable_editorconfig=no]
+    )
+
+    if test x$with_internal_edit != xno -a x$enable_editorconfig != xno; then
+            AC_CHECK_HEADERS([editorconfig/editorconfig.h], [], [
+                AC_MSG_ERROR([Could not find editorconfig development headers])
+            ], [])
+
+            AC_DEFINE(HAVE_EDITORCONFIG, 1, [Define to enable editorconfig support])
+            if test x$enable_aspell != xno; then
+                edit_msg="yes with aspell, editorconfig support"
+            else
+                edit_msg="yes with editorconfig support"
+            fi
+            AC_MSG_NOTICE([using editorconfig for internal editor])
+    fi
+
+    if test x$with_internal_edit != xno -a -n $edit_supports; then
+            edit_msg="yes with${edit_support} support"
     fi
 ])

@@ -31,3 +31,7 @@ endif
 endif
 
 AM_CPPFLAGS = $(GLIB_CFLAGS) -I$(top_srcdir) $(PCRE_CPPFLAGS)
+
+if USE_EDITORCONFIG
+libedit_la_LIBADD = -leditorconfig
+endif
